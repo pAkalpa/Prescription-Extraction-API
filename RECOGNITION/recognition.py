@@ -9,7 +9,7 @@ class TEXT_RECOGNITION:
     device = None
     model = None
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         #### Class constructor for initializing the OCRRecognizer object.
         """
@@ -20,7 +20,7 @@ class TEXT_RECOGNITION:
         self.model = VisionEncoderDecoderModel.from_pretrained(os.path.join(
             Config.ROOT_DIR.value, 'RECOGNITION', 'model', 'handwritten_best')).to(self.device)
 
-    def recognize(self, image):
+    def recognize(self, image) -> str:
         """
         #### A method to recognize text in an input image using the initialized OCRRecognizer object.
 

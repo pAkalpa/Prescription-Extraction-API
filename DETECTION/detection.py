@@ -8,14 +8,14 @@ class TEXT_DETECTION:
     model = None
     result = None
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         #### Class constructor for initializing the YOLOv8 object.
         """
         self.model = YOLO(os.path.join(
             Config.ROOT_DIR.value, 'DETECTION', 'model', 'best.pt'))
 
-    def detect(self, image, confidence=0.5):
+    def detect(self, image, confidence=0.5) -> dict:
         """
         #### A method to detect objects in an input image using the initialized object detector object.
 
@@ -35,7 +35,7 @@ class TEXT_DETECTION:
         true_conf_list = [conf * 100 for conf in conf_list]
         return {Config.IMAGE.value: result_plotted, Config.CONF_LIST.value: true_conf_list}
 
-    def crop_image(self):
+    def crop_image(self) -> dict:
         """
         #### A method to crop the detected objects in the input image using the initialized object detector object.
 
