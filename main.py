@@ -11,11 +11,14 @@ from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse
 from fastapi.security.api_key import APIKey
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.openapi.utils import get_openapi
 from dotenv import load_dotenv
 from DETECTION.detection import TEXT_DETECTION
 from RECOGNITION.recognition import TEXT_RECOGNITION
 from FIREBASE.firebaseIO import FirebaseIO
 from configs import Config
+from error import *
 
 load_dotenv(".env.development")
 API_KEY: str = os.environ.get(str(Config.API_KEY.name))
@@ -36,7 +39,7 @@ recognition_model = TEXT_RECOGNITION()
 fb = FirebaseIO(FIREBASE_KEY_JSON, FIREBASE_DATABASE_URL,
                 FIREBASE_STORAGE_BUCKET_URL)
 
-app = FastAPI(title="Prescription Extractor", redoc_url=None)
+app = FastAPI(redoc_url=None, docs_url=None)
 
 
 if CORS_ORIGINS is not None:
@@ -62,7 +65,26 @@ async def get_api_key(api_key_header: str = Security(api_key_header)):
         )
 
 
-@app.get("/")
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    openapi_schema = get_openapi(
+        title="Prescription Extractor",
+        version="1.0.0",
+        description="Python based API for extracting prescription information from images",
+        routes=app.routes,
+    )
+    openapi_schema["info"]["x-logo"] = {
+        "url": "https://res.cloudinary.com/pasindua/image/upload/v1681017394/api_assets/android-chrome-512x512_jrbyvw.png"
+    }
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+
+app.openapi = custom_openapi
+
+
+@app.get("/", include_in_schema=False)
 def read_root():
     if REDIRECT_URL is None or REDIRECT_URL == "":
         html_content = """
@@ -85,11 +107,24 @@ def read_root():
         return RedirectResponse(REDIRECT_URL)
 
 
+@app.get("/docs", include_in_schema=False)
+async def swagger_ui_html():
+    return get_swagger_ui_html(openapi_url="/openapi.json", title="Prescription Extractor API", swagger_favicon_url="https://res.cloudinary.com/pasindua/image/upload/v1681017394/api_assets/favicon_y7jctk.ico")
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return RedirectResponse("https://res.cloudinary.com/pasindua/image/upload/v1681017394/api_assets/favicon_y7jctk.ico")
+
+
 @app.post("/detect_img", status_code=200)
 async def add_post(api_key: APIKey = Depends(get_api_key), file: bytes = File(...)) -> ResponseModel:
     response = ResponseModel()
     try:
-        input_image = Image.open(BytesIO(file)).convert("RGB")
+        try:
+            input_image = Image.open(BytesIO(file)).convert("RGB")
+        except:
+            raise FileReadError()
         detected_dict = detection_model.detect(input_image)
         crop_dict = detection_model.crop_image()
         url_and_name = fb.uploadImage(detected_dict[Config.IMAGE.value])
@@ -112,11 +147,23 @@ async def add_post(api_key: APIKey = Depends(get_api_key), file: bytes = File(..
             content=resJson
         )
     except Exception as e:
-        print(e)
-        response.error = "INVALID MEDIA TYPE"
+        errorMessage = ""
+        httpStatus = None
+
+        if isinstance(e, FileReadError):
+            errorMessage = e.message
+            httpStatus = status.HTTP_415_UNSUPPORTED_MEDIA_TYPE
+        elif isinstance(e, (FirebaseInitializationError, FirebaseCreateDocumentError, FirebaseUpdateDocumentError, FirebaseUploadError, DetectionInitializationError, DetectionDetectError, DetectionCropError, RecognitionInitializationError, RecognitionRecognizeError)):
+            errorMessage = e.message
+            httpStatus = status.HTTP_500_INTERNAL_SERVER_ERROR
+        else:
+            errorMessage = "Unknown Error"
+            httpStatus = status.HTTP_500_INTERNAL_SERVER_ERROR
+
+        response.error = errorMessage
         resJson = jsonable_encoder(response)
         return JSONResponse(
-            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            status_code=httpStatus,
             content=resJson
         )
 
