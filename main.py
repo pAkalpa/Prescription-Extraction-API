@@ -31,6 +31,8 @@ FIREBASE_STORAGE_BUCKET_URL: str = os.environ.get(
 FIREBASE_KEY_ENCODED: str = os.environ.get(str(Config.FIREBASE_KEY.name))
 FIREBASE_KEY_DECODED = base64.b64decode(FIREBASE_KEY_ENCODED).decode('UTF-8')
 FIREBASE_KEY_JSON = json.loads(FIREBASE_KEY_DECODED)
+DETECT_CONFIDENCE: float = float(
+    os.environ.get(str(Config.DETECT_CONFIDENCE.name)))
 
 api_key_header = APIKeyHeader(name="x-api-key", auto_error=False)
 
@@ -125,7 +127,7 @@ async def add_post(api_key: APIKey = Depends(get_api_key), file: bytes = File(..
             input_image = Image.open(BytesIO(file)).convert("RGB")
         except:
             raise FileReadError()
-        detected_dict = detection_model.detect(input_image)
+        detected_dict = detection_model.detect(input_image, DETECT_CONFIDENCE)
         crop_dict = detection_model.crop_image()
         url_and_name = fb.uploadImage(detected_dict[Config.IMAGE.value])
         documentId = fb.createDocument(url_and_name[0], url_and_name[1])

@@ -19,3 +19,4 @@ class Config(Enum):
     REDIRECT_URL = auto()
     CORS_ORIGINS = auto()
     TEMP_IMG = "temp"
+    DETECT_CONFIDENCE = auto()
