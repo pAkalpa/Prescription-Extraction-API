@@ -20,3 +20,4 @@ class Config(Enum):
     CORS_ORIGINS = auto()
     TEMP_IMG = "temp"
     SENTRY_DSN = auto()
+    DETECT_CONFIDENCE = auto()
