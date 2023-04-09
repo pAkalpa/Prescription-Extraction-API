@@ -3,6 +3,7 @@ import os
 import json
 import base64
 import threading
+import sentry_sdk
 from model import ResponseModel
 from PIL import Image
 from fastapi import FastAPI, Security, HTTPException, status, File, Depends
@@ -31,6 +32,7 @@ FIREBASE_STORAGE_BUCKET_URL: str = os.environ.get(
 FIREBASE_KEY_ENCODED: str = os.environ.get(str(Config.FIREBASE_KEY.name))
 FIREBASE_KEY_DECODED = base64.b64decode(FIREBASE_KEY_ENCODED).decode('UTF-8')
 FIREBASE_KEY_JSON = json.loads(FIREBASE_KEY_DECODED)
+SENTRY_DSN: str = os.environ.get(str(Config.SENTRY_DSN.name))
 
 api_key_header = APIKeyHeader(name="x-api-key", auto_error=False)
 
@@ -38,6 +40,9 @@ detection_model = TEXT_DETECTION()
 recognition_model = TEXT_RECOGNITION()
 fb = FirebaseIO(FIREBASE_KEY_JSON, FIREBASE_DATABASE_URL,
                 FIREBASE_STORAGE_BUCKET_URL)
+
+if SENTRY_DSN is not None:
+    sentry_sdk.init(dsn=SENTRY_DSN, traces_sample_rate=1.0)
 
 app = FastAPI(redoc_url=None, docs_url=None)
 
